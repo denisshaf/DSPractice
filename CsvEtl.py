@@ -9,4 +9,4 @@ class CsvEtl(ETL, ABC):
         if not os.path.exists(dir):
             os.mkdir(dir)
         for name, dataframe in self.data.items():
-            dataframe.to_csv(f'{dir}{name}')
+            dataframe.to_csv(f'{dir}{name}.csv')
