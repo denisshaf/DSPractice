@@ -160,3 +160,5 @@ cython_debug/
 .idea/*.iws
 .idea/workspace.xml
 .idea/tasks.xml
+
+./data/transformed/
