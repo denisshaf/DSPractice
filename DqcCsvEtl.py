@@ -19,7 +19,7 @@ class DqcCsvEtl(CsvEtl):
         q25, q75 = np.quantile(sqrt_transformed, [.25, .75])
         iqd = q75 - q25
         borders = q25 - 1.5 * iqd, q75 + 1.5 * iqd
-        self.data['sales_train'].drop(self.data['sales_train'][sqrt_transformed > borders[0]].index,
+        self.data['sales_train'].drop(self.data['sales_train'][sqrt_transformed > borders[1]].index,
                                       inplace=True)
         self.data['sales_train'].drop(self.data['sales_train'][self.data['sales_train']['item_cnt_day'] > 5].index,
                                  inplace=True)
@@ -27,5 +27,3 @@ class DqcCsvEtl(CsvEtl):
         # normalization
         self.data['sales_train']['item_price'] = (self.data['sales_train']['item_price'] - self.data['sales_train'][
             'item_price'].mean()) / self.data['sales_train']['item_price'].std()
-        self.data['sales_train']['item_cnt_day'] = (self.data['sales_train']['item_cnt_day'] - self.data['sales_train'][
-            'item_cnt_day'].mean()) / self.data['sales_train']['item_cnt_day'].std()
