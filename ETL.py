@@ -7,6 +7,7 @@ class ETL(ABC):
 
     def __init__(self):
         self.data = {}
+        self.result_data = {}
 
     def extract(self, path, name=None):
         if name is None:
