@@ -20,7 +20,8 @@ class DqcCsvEtl(CsvEtl):
                                       inplace=True)
 
         # join tables
-        items = self.data['items'].merge(self.data['item_categories'], how='outer')
-        merged_data = items.merge(self.data['sales_train'], how='outer').merge(self.data['shops'])
-        merged_data = merged_data.drop(['item_id', 'item_category_id', 'shop_id'], axis=1)
-        self.result_data = {'result': merged_data}
+        # items = self.data['items'].merge(self.data['item_categories'], how='outer')
+        # merged_data = items.merge(self.data['sales_train'], how='outer').merge(self.data['shops'])
+        # merged_data = merged_data.drop(['item_id', 'item_category_id', 'shop_id'], axis=1)
+
+        self.result_data = self.data
