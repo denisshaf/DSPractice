@@ -1,18 +1,26 @@
 import pandas as pd
 import tensorflow_data_validation as tfdv
-from typing import List, Dict, Tuple, Literal
+import tensorflow_metadata as tfmd
+from typing import Literal, TypedDict
 import google.protobuf.pyext._message
 
 from .schema_writer import load_schema
-from .type_conversion import FeatureType, squeeze_int, squeeze_float
-from .exceptions import InvalidSchemaException
+from ..utils.type_conversion import squeeze_int, squeeze_float
+from .exceptions import InvalidSchemaException, StatisticsAnomaly, DriftAnomaly
 from .splitter.splitter import Splitter
+from .feature_type import FeatureType 
+
+
+class ValidationResult(TypedDict):
+    stats: dict
+    drift: dict
+    skew: dict | None
 
 
 class Validator:
     def __init__(self,
                  splitter: Splitter,
-                 schema_path: str = None):
+                 schema_path: str | None = None):
         if schema_path is not None:
             self.schema = load_schema(schema_path)
 
@@ -27,10 +35,17 @@ class Validator:
 
         self.optional_features = []
 
-    def run_pipeline(self,
+
+    def run_validation(self,
                      data: pd.DataFrame,
-                     drift_comparator_config,
-                     opt_features: List[str] = None):
+                     drift_comparator_config: dict[str, tuple[Literal['infinity_norm', 'jensen_shannon_divergence'], float]],
+                     display_anomalies: bool = False,
+                     raise_exception: bool = True,
+                     opt_features: list[str] | None = None) -> None:
+        """ Runs validation piplene. Checks statistics and drift anomalies. 
+            If there are anomalies, raises exception with anomaly object. If not, returns None
+        """
+
         data = self.preprocess_types(data)
 
         split = self.splitter.split(data)
@@ -38,13 +53,18 @@ class Validator:
         self.val_data = split.get('validation')
         self.test_data = split['test']
 
-        self.generate_statistics()
-
         if opt_features is not None:
             self.add_optional_features(opt_features)
 
         self.generate_statistics()
         stats_anomalies = self.validate_statistics()
+
+        for key, anomaly in stats_anomalies.items():
+            if anomaly.anomaly_info:
+                if display_anomalies:
+                    tfdv.display_anomalies(anomaly)
+                if raise_exception:
+                    raise StatisticsAnomaly(sample_name=key, anomaly=anomaly)
 
         drift_anomalies = dict()
         if self.val_data is None:
@@ -55,8 +75,14 @@ class Validator:
                                                              between=('train', 'val'))
             drift_anomalies['val_test'] = self.check_drift(drift_comparator_config,
                                                             between=('val', 'test'))
+        
+        for key, anomaly in drift_anomalies.items():
+            if anomaly.anomaly_info:
+                if display_anomalies:
+                    tfdv.display_anomalies(anomaly)
+                if raise_exception:
+                    raise DriftAnomaly(sample_name=key, anomaly=anomaly)
 
-        return {'stats': stats_anomalies, 'drift': drift_anomalies}
 
     def preprocess_types(self, data: pd.DataFrame) -> pd.DataFrame:
         if self.schema is None:
@@ -85,6 +111,7 @@ class Validator:
 
         return data
 
+
     def generate_statistics(self) -> None:
         stats_options = tfdv.StatsOptions(schema=self.schema)
 
@@ -93,7 +120,8 @@ class Validator:
             self.val_stats = tfdv.generate_statistics_from_dataframe(self.val_data, stats_options)
         self.test_stats = tfdv.generate_statistics_from_dataframe(self.test_data, stats_options)
 
-    def add_optional_features(self, opt_features: List[str]) -> None:
+
+    def add_optional_features(self, opt_features: list[str]) -> None:
         self.optional_features.extend(opt_features)
 
         if 'TRAINING' not in self.schema.default_environment:
@@ -113,7 +141,8 @@ class Validator:
         for feature in opt_features:
             tfdv.get_feature(self.schema, feature).not_in_environment.append('SERVING')
 
-    def validate_statistics(self) -> Dict[str: google.protobuf.pyext._message.MessageMapContainer]:
+
+    def validate_statistics(self) -> dict[Literal['train', 'validation', 'test'], tfmd.proto.anomalies_pb2.Anomalies]:
         train_anomalies = tfdv.validate_statistics(statistics=self.train_stats, schema=self.schema)
         test_anomalies = tfdv.validate_statistics(statistics=self.test_stats, schema=self.schema)
         anomalies = {'train': train_anomalies, 'test': test_anomalies}
@@ -124,11 +153,12 @@ class Validator:
 
         return anomalies
 
+
     def check_drift(self,
-                    drift_comparator_config: Dict[str: Tuple[Literal['infinity_norm', 'jensen_shannon_divergence'], float]],
-                    between: Tuple[Literal['train', 'validation', 'test'],
+                    drift_comparator_config: dict[str, tuple[Literal['infinity_norm', 'jensen_shannon_divergence'], float]],
+                    between: tuple[Literal['train', 'validation', 'test'],
                                    Literal['train', 'validation', 'test']]
-                    ) -> google.protobuf.pyext._message.MessageMapContainer:
+                    ) -> tfmd.proto.anomalies_pb2.Anomalies:
 
         for feature, (metric, threshold) in drift_comparator_config.items():
             if feature.type in [FeatureType.INT, FeatureType.FLOAT] and metric == 'infinity_norm':
@@ -154,6 +184,7 @@ class Validator:
                                              statistics=stats,
                                              schema=self.schema)
         return anomalies
+
 
     def check_skew(self):
         raise NotImplementedError()

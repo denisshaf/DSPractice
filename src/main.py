@@ -1,16 +1,36 @@
-import tensorflow
+import os
 
 from ETL.DqcCsvEtl import DqcCsvEtl
-import os
+from validation.validation import Validator
+from validation.splitter.time_series_splitter import TTVTimeSeriesSplitter
+import feature_extraction.feature_extraction as fe
 
 
 if __name__ == '__main__':
+    RAW_DATA_PATH = './data/raw'
+    TRANSFORMED_DATA_PATH = './data/transformed/'
+    EXTRACTED_DATA_PATH = './data/transformed/'
+    SCHEMA_PATH = 'data/schema/pre_features_schema.pbtxt'
+    
     etl = DqcCsvEtl()
-    raw_data_path = './data/raw'
-    for file in os.listdir(raw_data_path):
+    for file in os.listdir(RAW_DATA_PATH):
         if file.endswith('.csv'):
-            etl.extract(f'{raw_data_path}/{file}', name=file[:-4])
+            etl.extract(os.path.join(RAW_DATA_PATH, file), name=file[:-4])
     etl.transform()
-    etl.load()
+    etl.load(TRANSFORMED_DATA_PATH)
+
+    data = etl.result_data
+
+    splitter = TTVTimeSeriesSplitter()
+    validator = Validator(data, splitter, SCHEMA_PATH)
+    validator.run_validation()
+
+    fe.run_pipeline(TRANSFORMED_DATA_PATH, EXTRACTED_DATA_PATH)
+
+
+
+
+    
+
 
 
