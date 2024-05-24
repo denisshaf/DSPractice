@@ -31,5 +31,11 @@ item_price - current price of an item
 - item_name - name of item
 - shop_name - name of shop
 - item_category_name - name of item category
-  
-This dataset is permitted to be used for any purpose, including commercial use.
+
+## Installation
+
+You can download dev version of the package from TestPyPI using Pip:
+
+```pip install -i https://test.pypi.org/simple/ future-sales-prediction-denis-shafarenko```
+
+
