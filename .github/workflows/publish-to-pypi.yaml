@@ -6,12 +6,14 @@ on:
     paths:
       - pyproject.toml
       - src/**
-  pull-request:
+      - .github/workflows/**
+  pull_request:
     types: [opened]
     branches: [main, dev]
     paths:
       - pyproject.toml
       - src/**
+      - .github/workflows/**
 
 jobs:
   build:
