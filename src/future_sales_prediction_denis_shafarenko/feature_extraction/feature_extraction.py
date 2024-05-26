@@ -232,7 +232,7 @@ def create_date_features(numeric_features: pd.DataFrame) -> None:
     numeric_features['month_y'] = (numeric_features['month'].astype('float32') * np.pi / 6).apply(np.cos)
 
 
-def run_pipeline(input_dir: str, output_dir: str):
+def run_pipeline(input_dir: str, output_dir: str, config: dict) -> pd.DataFrame:
     """ Runs data transformation pipline with filling Nones with zeros
 
     Arguments:
@@ -248,22 +248,11 @@ def run_pipeline(input_dir: str, output_dir: str):
     
     gc.collect()
 
-    lags_for_prediction_columns: list[LagConfig] = [
-        {'groupby': ['shop_id', 'date_block_num'], 'column': 'shop_month_revenue', 'lags': [1, 4, 12]},
-        {'groupby': ['item_id', 'shop_id', 'date_block_num'], 'column': 'item_revenue', 'lags': [1, 4, 12]},
-        {'groupby': ['shop_id', 'date_block_num'], 'column': 'relative_shop_delta_revenue', 'lags': [1, 4]},
-        {'groupby': ['shop_id', 'date_block_num'], 'column': 'relative_delta_revenue', 'lags': [1, 4, 12]},
-        {'groupby': ['shop_id', 'date_block_num'], 'column': 'avg_price', 'lags': [1, 4, 12]},
-        {'groupby': ['shop_id', 'date_block_num'], 'column': 'item_cnt_month', 'lags': [1, 4, 12]},
-    ]
+    lags_for_prediction_columns: list[LagConfig] = config['lags']
     create_lags(numeric_features, lags_for_prediction_columns)
 
     # drop redundant features and save them only from the last month to create lags for submission
-    lag_columns_to_drop = ['avg_price',  
-                            'item_revenue', 
-                            'shop_month_revenue',
-                            'relative_delta_revenue',
-                            'relative_shop_delta_revenue']
+    lag_columns_to_drop = [lag['column'] for lag in lags_for_prediction_columns].remove(config['target'])
     numeric_features.drop(columns=lag_columns_to_drop, inplace=True)
 
     last_month_num = numeric_features['date_block_num'][-1]
@@ -284,3 +273,5 @@ def run_pipeline(input_dir: str, output_dir: str):
 
     features.to_parquet(f'{output_dir}features.parquet', index=True)
     last_month_lags.to_parquet(f'{output_dir}last_month_lags.parquet', index=True)
+
+    return features

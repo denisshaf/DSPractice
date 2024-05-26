@@ -1,13 +1,13 @@
 import pandas as pd
 import tensorflow_data_validation as tfdv
 import tensorflow_metadata as tfmd
+from tensorflow_metadata.proto.v0.anomalies_pb2 import Anomalies
 from typing import Literal, TypedDict
-import google.protobuf.pyext._message
 
 from .schema_writer import load_schema
 from ..utils.type_conversion import squeeze_int, squeeze_float
 from .exceptions import InvalidSchemaException, StatisticsAnomaly, DriftAnomaly
-from .splitter.splitter import Splitter
+from ..splitter.splitter import Splitter, SplitterConfig
 from .feature_type import FeatureType 
 
 
@@ -37,18 +37,22 @@ class Validator:
 
 
     def run_validation(self,
-                     data: pd.DataFrame,
-                     drift_comparator_config: dict[str, tuple[Literal['infinity_norm', 'jensen_shannon_divergence'], float]],
-                     display_anomalies: bool = False,
-                     raise_exception: bool = True,
-                     opt_features: list[str] | None = None) -> None:
+                    data: pd.DataFrame,
+                    splitter_config: SplitterConfig,
+                    drift_comparator_config: dict[str, tuple[Literal['infinity_norm', 'jensen_shannon_divergence'], float]],
+                    display_anomalies: bool = False,
+                    raise_exception: bool = True,
+                    opt_features: list[str] | None = None) -> None:
         """ Runs validation piplene. Checks statistics and drift anomalies. 
             If there are anomalies, raises exception with anomaly object. If not, returns None
         """
 
+        if splitter_config.test_size == 0:
+            return
+
         data = self.preprocess_types(data)
 
-        split = self.splitter.split(data)
+        split = self.splitter.split(data, splitter_config, sorted=True)
         self.train_data = split['train']
         self.val_data = split.get('validation')
         self.test_data = split['test']
@@ -72,9 +76,9 @@ class Validator:
                                                              between=('train', 'test'))
         else:
             drift_anomalies['train_val'] = self.check_drift(drift_comparator_config,
-                                                             between=('train', 'val'))
+                                                             between=('train', 'validation'))
             drift_anomalies['val_test'] = self.check_drift(drift_comparator_config,
-                                                            between=('val', 'test'))
+                                                            between=('validation', 'test'))
         
         for key, anomaly in drift_anomalies.items():
             if anomaly.anomaly_info:
@@ -142,7 +146,7 @@ class Validator:
             tfdv.get_feature(self.schema, feature).not_in_environment.append('SERVING')
 
 
-    def validate_statistics(self) -> dict[Literal['train', 'validation', 'test'], tfmd.proto.anomalies_pb2.Anomalies]:
+    def validate_statistics(self) -> dict[Literal['train', 'validation', 'test'], Anomalies]:
         train_anomalies = tfdv.validate_statistics(statistics=self.train_stats, schema=self.schema)
         test_anomalies = tfdv.validate_statistics(statistics=self.test_stats, schema=self.schema)
         anomalies = {'train': train_anomalies, 'test': test_anomalies}
@@ -158,22 +162,16 @@ class Validator:
                     drift_comparator_config: dict[str, tuple[Literal['infinity_norm', 'jensen_shannon_divergence'], float]],
                     between: tuple[Literal['train', 'validation', 'test'],
                                    Literal['train', 'validation', 'test']]
-                    ) -> tfmd.proto.anomalies_pb2.Anomalies:
+                    ) -> Anomalies:
 
+        features = filter(lambda f: f.name not in self.optional_features, self.schema.feature)
+        features_dict = {f.name: f.type for f in features}
         for feature, (metric, threshold) in drift_comparator_config.items():
-            if feature.type in [FeatureType.INT, FeatureType.FLOAT] and metric == 'infinity_norm':
+            if features_dict[feature] in [FeatureType.INT, FeatureType.FLOAT] and metric == 'infinity_norm':
                 raise TypeError(f'Infinity norm is not supported for numerical types: '
-                                f'{feature.name} has type {feature.type.name}')
+                                f'{feature} has type {features_dict[feature].name}')
             tfdv.get_feature(self.schema, feature).drift_comparator.getattr(metric).threshold = threshold
 
-        # tfdv.get_feature(self.schema, 'item_id').drift_comparator.infinity_norm.threshold = 0.01
-        # tfdv.get_feature(self.schema, 'shop_id').drift_comparator.infinity_norm.threshold = 0.01
-        # tfdv.get_feature(self.schema, 'item_category_id').drift_comparator.infinity_norm.threshold = 0.01
-
-        # tfdv.get_feature(self.schema, 'item_price').drift_comparator.jensen_shannon_divergence.threshold = 0.01
-        # tfdv.get_feature(self.schema, 'item_cnt_day').drift_comparator.jensen_shannon_divergence.threshold = 0.01
-
-        between = set(between)
         if self.val_stats is None and 'validation' in between:
             raise ValueError('Validation set is not defined')
 

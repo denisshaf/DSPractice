@@ -1,5 +1,5 @@
 import numpy as np
-from CsvEtl import CsvEtl
+from .CsvEtl import CsvEtl
 
 
 class DqcCsvEtl(CsvEtl):
