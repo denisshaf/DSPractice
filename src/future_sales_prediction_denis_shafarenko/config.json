@@ -1,0 +1,55 @@
+{
+    "model": {
+        "depth": 7
+    },
+    "splitter": [32, 1, 1],
+    "numeric_features": [
+        "shop_month_revenue_lag_1",
+        "shop_month_revenue_lag_4",
+        "shop_month_revenue_lag_12",
+        "item_revenue_lag_1",
+        "item_revenue_lag_4",
+        "item_revenue_lag_12",
+        "relative_shop_delta_revenue_lag_1",
+        "relative_shop_delta_revenue_lag_4",
+        "relative_delta_revenue_lag_1",
+        "relative_delta_revenue_lag_4",
+        "relative_delta_revenue_lag_12",
+        "avg_price_lag_1",
+        "avg_price_lag_4",
+        "avg_price_lag_12",
+        "item_cnt_month_lag_1",
+        "item_cnt_month_lag_4",
+        "item_cnt_month_lag_12"
+    ],
+    "categorical_features": [
+        "date_block_num",
+        "shop_id",
+        "item_id",
+        "month",
+        "year",
+        "city",
+        "type",
+        "item_category_id",
+        "name2",
+        "name3",
+        "category",
+        "subcategory"
+    ],
+    "target": "item_cnt_month",
+    "lags": [
+        {"groupby": ["shop_id", "date_block_num"], "column": "shop_month_revenue", "lags": [1, 4, 12]},
+        {"groupby": ["item_id", "shop_id", "date_block_num"], "column": "item_revenue", "lags": [1, 4, 12]},
+        {"groupby": ["shop_id", "date_block_num"], "column": "relative_shop_delta_revenue", "lags": [1, 4]},
+        {"groupby": ["shop_id", "date_block_num"], "column": "relative_delta_revenue", "lags": [1, 4, 12]},
+        {"groupby": ["shop_id", "date_block_num"], "column": "avg_price", "lags": [1, 4, 12]},
+        {"groupby": ["shop_id", "date_block_num"], "column": "item_cnt_month", "lags": [1, 4, 12]}
+    ],
+    "drift_comparator": {
+        "item_id": ["infinity_norm", 0.01],
+        "shop_id": ["infinity_norm", 0.01],
+        "item_category_id": ["infinity_norm", 0.01],
+        "item_price": ["jensen_shannon_divergence", 0.01],
+        "item_cnt_day": ["jensen_shannon_divergence", 0.01]
+    }
+}

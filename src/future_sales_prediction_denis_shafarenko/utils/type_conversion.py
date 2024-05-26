@@ -1,14 +1,5 @@
-from enum import Enum, auto
 import pandas as pd
 import numpy as np
-
-
-class FeatureType(Enum):
-    TYPE_UNKNOWN = auto()
-    BYTES = auto()
-    INT = auto()
-    FLOAT = auto()
-    STRUCT = auto()
 
 
 def squeeze_int(s: pd.Series) -> pd.Series:

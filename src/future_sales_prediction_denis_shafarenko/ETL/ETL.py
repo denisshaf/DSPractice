@@ -1,19 +1,18 @@
 import pandas as pd
-import numpy as np
 from abc import ABC, abstractmethod
 
 
 class ETL(ABC):
 
     def __init__(self):
-        self.data = {}
+        self.raw_data = {}
         self.result_data = {}
 
-    def extract(self, path, name=None):
+    def extract(self, path: str, name : str | None = None):
         if name is None:
             name = path
 
-        self.data[name] = pd.read_csv(path)
+        self.raw_data[name] = pd.read_csv(path)
 
     @abstractmethod
     def transform(self):

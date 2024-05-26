@@ -1,15 +1,15 @@
-from ETL import ETL
+from .ETL import ETL
 from abc import ABC
 import os
 
 
 class CsvEtl(ETL, ABC):
-    def load(self) -> None:
-        path = './data/transformed/'
+    def load(self, path) -> None:
         if not os.path.exists(path):
             os.mkdir(path)
         else:
             for file in os.listdir(path):
-                os.unlink(f'{path}{file}')
+                os.unlink(os.path.join(path, file))
+                
         for name, dataframe in self.result_data.items():
-            dataframe.to_csv(f'{path}{name}.csv', index=False)
+            dataframe.to_csv(os.path.join(path, f'{name}.csv'), index=False)

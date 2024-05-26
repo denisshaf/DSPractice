@@ -1,0 +1,8 @@
+DATA_PATH = 'data/'
+RAW_DATA_PATH = 'data/raw/'
+TRANSFORMED_DATA_PATH = 'data/transformed/'
+EXTRACTED_DATA_PATH = 'data/extracted/'
+SCHEMA_PATH = 'data/schema/pre_features_schema.pbtxt'
+MODEL_CONFIG_PATH = 'model_config.json'
+MODEL_PATH = 'data/'
+PRED_PATH = 'data/'
